@@ -1,19 +1,62 @@
+#!/usr/bin/env bash
 set -eu
 
 mkdir -p build
 
-make -C third-party/raylib/src PLATFORM=PLATFORM_DESKTOP
+RAYLIB_DIR="third-party/raylib/src"
+OUT="build/screenshot"
 
-clang \
-  main.c \
-  third-party/raylib/src/libraylib.a \
-  -Ithird-party/raylib/src \
-  -lGL \
-  -lm \
-  -lpthread \
-  -ldl \
-  -lrt \
-  -lX11 \
-  -o build/screenshot
+make -C "$RAYLIB_DIR" PLATFORM=PLATFORM_DESKTOP
 
-./build/screenshot
+case "$(uname -s)" in
+Linux)
+  clang \
+    main.c \
+    "$RAYLIB_DIR/libraylib.a" \
+    -I"$RAYLIB_DIR" \
+    -lGL \
+    -lm \
+    -lpthread \
+    -ldl \
+    -lrt \
+    -lX11 \
+    -o "$OUT"
+  ;;
+
+Darwin)
+  clang \
+    main.c \
+    capture_macos.m \
+    "$RAYLIB_DIR/libraylib.a" \
+    -I"$RAYLIB_DIR" \
+    -framework OpenGL \
+    -framework Cocoa \
+    -framework IOKit \
+    -framework CoreAudio \
+    -framework CoreVideo \
+    -framework Foundation \
+    -framework ScreenCaptureKit \
+    -framework CoreGraphics \
+    -o "$OUT"
+  ;;
+
+MINGW* | MSYS* | CYGWIN*)
+  OUT="build/screenshot.exe"
+
+  clang \
+    main.c \
+    "$RAYLIB_DIR/libraylib.a" \
+    -I"$RAYLIB_DIR" \
+    -lopengl32 \
+    -lgdi32 \
+    -lwinmm \
+    -o "$OUT"
+  ;;
+
+*)
+  echo "Unsupported OS: $(uname -s)"
+  exit 1
+  ;;
+esac
+
+"$OUT"

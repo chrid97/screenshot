@@ -6,7 +6,19 @@
 
 int main(void) {
     struct Screenshot screenshot = { 0 };
+    // Screenshot modes
+    // Catpure Entire Screen
+    // Capture Selected Window
+    // Catpure Selected Region
 
+    // Save to clipboard
+    // Save to target dir
+
+    // undo/redo -- i can store operations that operate on the original image?
+    // but the question is do i want to take another screenshot? or write the changes to the buffer
+    // and just save the buffer? well what's easier? probably taking another screenshot?
+    // oh if I just take a screenshot of the new region won't it include the shape i darw on screen
+    // to selecta region
 #if defined(__linux__)
     FILE *file = popen("grim -t ppm -", "r");
     char magic[3];
@@ -55,13 +67,52 @@ int main(void) {
     printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
+    Vector2 initial_mouse_position = { 0 };
+    Vector2 current_mouse_position = { 0 };
     while (!WindowShouldClose()) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            initial_mouse_position = GetMousePosition();
+            printf("%f, %f\n", GetMousePosition().x, GetMousePosition().y);
+        }
+
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            current_mouse_position = GetMousePosition();
+        }
+
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            printf("Initial %f, %f\n", initial_mouse_position.x, initial_mouse_position.y);
+            printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
+        }
+
         BeginDrawing();
         ClearBackground(BLACK);
 
+        // Draw screenshot
         Rectangle src = { 0, 0, (float)texture.width, (float)texture.height };
         Rectangle dst = { 0, 0, (float)GetScreenWidth(), (float)GetScreenHeight() };
         DrawTexturePro(texture, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+
+        // Draw selected region
+        Vector2 top_left = initial_mouse_position;
+        Vector2 bottom_right = current_mouse_position;
+
+        Vector2 top_right = {
+            bottom_right.x,
+            top_left.y,
+        };
+
+        Vector2 bottom_left = {
+            top_left.x,
+            bottom_right.y,
+        };
+
+        int dash_size = 15;
+        int gap = 15;
+        Color color = RED;
+        DrawLineDashed(top_left, top_right, dash_size, gap, color);
+        DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
+        DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);
+        DrawLineDashed(bottom_left, top_left, dash_size, gap, color);
 
         EndDrawing();
     }

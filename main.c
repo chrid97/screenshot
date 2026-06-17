@@ -82,6 +82,25 @@ int main(void) {
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             printf("Initial %f, %f\n", initial_mouse_position.x, initial_mouse_position.y);
             printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
+
+            // for now i can slice out the pixels i want
+            // height * width * stride = length of pixels of capture region
+            // but tha tdoesn't tell us where to start? it tells us where to end
+            // maybe iinitial position * itself * stride gives us teh ending position in the
+            // array?
+
+            float slice_starting_position = initial_mouse_position.x * initial_mouse_position.y * 4;
+            float slice_ending_position = current_mouse_position.x + current_mouse_position.y * 4;
+            printf("%f\n %f", slice_starting_position, slice_ending_position);
+            FILE *new_screenshot = fopen("datetime.ppm", "ab+");
+            if (!new_screenshot) {
+                perror("fopen");
+                return 1;
+            }
+
+            fprintf(new_screenshot, "P6\n%d %d\n255\n", screenshot.width, screenshot.height);
+            fwrite(screenshot.pixels, 1, screenshot.width * screenshot.height * 3, new_screenshot);
+            fclose(new_screenshot);
         }
 
         BeginDrawing();

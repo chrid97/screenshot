@@ -3,8 +3,12 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+enum Region { ENTIRE_SCREEN, SELECTED_REGION };
 
 int main(void) {
+    enum Region region = SELECTED_REGION;
     struct Screenshot screenshot = { 0 };
     // Screenshot modes
     // Catpure Entire Screen
@@ -67,6 +71,15 @@ int main(void) {
     printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
+    switch (region) {
+    case ENTIRE_SCREEN: {
+        ExportImage(image, "image.png");
+        return 0;
+    } break;
+    case SELECTED_REGION: {
+    } break;
+    }
+
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
     while (!WindowShouldClose()) {
@@ -83,24 +96,34 @@ int main(void) {
             printf("Initial %f, %f\n", initial_mouse_position.x, initial_mouse_position.y);
             printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
 
-            // for now i can slice out the pixels i want
-            // height * width * stride = length of pixels of capture region
-            // but tha tdoesn't tell us where to start? it tells us where to end
-            // maybe iinitial position * itself * stride gives us teh ending position in the
-            // array?
+            // ON macos screenshots are in retina space
+            // mouse is in screen space
+            // we want to scale mosue coords up to retina space
+            float scale_x = (float)image.width / (float)GetScreenWidth();
+            float scale_y = (float)image.height / (float)GetScreenHeight();
 
-            float slice_starting_position = initial_mouse_position.x * initial_mouse_position.y * 4;
-            float slice_ending_position = current_mouse_position.x + current_mouse_position.y * 4;
-            printf("%f\n %f", slice_starting_position, slice_ending_position);
-            FILE *new_screenshot = fopen("datetime.ppm", "ab+");
-            if (!new_screenshot) {
-                perror("fopen");
-                return 1;
+            int x1 = (int)(initial_mouse_position.x * scale_x);
+            int y1 = (int)(initial_mouse_position.y * scale_y);
+            int x2 = (int)(current_mouse_position.x * scale_x);
+            int y2 = (int)(current_mouse_position.y * scale_y);
+
+            int width = x2 - x1;
+            int height = y2 - y1;
+            unsigned char *cropped_image_pixels = malloc(width * height * 4);
+
+            unsigned char *pixels = image.data;
+            for (int y = y1; y < y2; y++) {
+                unsigned char *src = pixels + (y * image.width + x1) * 4;
+                unsigned char *dst = cropped_image_pixels + ((y - y1) * width * 4);
+                memcpy(dst, src, width * 4);
             }
 
-            fprintf(new_screenshot, "P6\n%d %d\n255\n", screenshot.width, screenshot.height);
-            fwrite(screenshot.pixels, 1, screenshot.width * screenshot.height * 3, new_screenshot);
-            fclose(new_screenshot);
+            Image cropped = image;
+            cropped.data = cropped_image_pixels;
+            cropped.height = height;
+            cropped.width = width;
+            ExportImage(cropped, "image.png");
+            break;
         }
 
         BeginDrawing();

@@ -47,13 +47,13 @@ int main(void) {
 #endif
 
     int pixel_format = 0;
-    int bbp = 0;
+    int bytes_per_pixel = 0;
 #if defined(__linux__)
     pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
-    bbp = 3;
+    bytes_per_pixel = 3;
 #elif defined(__APPLE__)
     pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    bbp = 4;
+    bytes_per_pixel = 4;
 #endif
 
     Image image = {
@@ -112,13 +112,13 @@ int main(void) {
 
             int width = x2 - x1;
             int height = y2 - y1;
-            unsigned char *cropped_image_pixels = malloc(width * height * bbp);
+            unsigned char *cropped_image_pixels = malloc(width * height * bytes_per_pixel);
 
             unsigned char *pixels = image.data;
             for (int y = y1; y < y2; y++) {
-                unsigned char *src = pixels + (y * image.width + x1) * bbp;
-                unsigned char *dst = cropped_image_pixels + ((y - y1) * width * bbp);
-                memcpy(dst, src, width * bbp);
+                unsigned char *src = pixels + (y * image.width + x1) * bytes_per_pixel;
+                unsigned char *dst = cropped_image_pixels + ((y - y1) * width * bytes_per_pixel);
+                memcpy(dst, src, width * bytes_per_pixel);
             }
 
             Image cropped = image;

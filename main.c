@@ -127,9 +127,13 @@ int main(void) {
 
             // ExportImage(cropped, "image.png");
             uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
+#if defined(__linux__)
+            FILE *pipe = popen("wl-copy --type image/png", "w");
+            fwrite(data, 1, image_size, pipe);
+#elif defined(__APPLE__)
             copy_png_to_clipboard(data, image_size);
-
             break;
+#endif
         }
 
         BeginDrawing();

@@ -5,24 +5,20 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum Region { ENTIRE_SCREEN, SELECTED_REGION };
+typedef enum {
+    CAPTURE_MODE_SCREEN,
+    CAPTURE_MODE_REGION,
+    CAPTURE_MODE_WINDOW,
+} CaptureMode;
+
+typedef enum {
+    OUTPUT_CLIPBOARD,
+    OUTPUT_DISK,
+} OutputDestination;
 
 int main(void) {
-    enum Region region = SELECTED_REGION;
+    CaptureMode capture_mode = CAPTURE_MODE_REGION;
     struct Screenshot screenshot = { 0 };
-    // Screenshot modes
-    // Catpure Entire Screen
-    // Capture Selected Window
-    // Catpure Selected Region
-
-    // Save to clipboard
-    // Save to target dir
-
-    // undo/redo -- i can store operations that operate on the original image?
-    // but the question is do i want to take another screenshot? or write the changes to the buffer
-    // and just save the buffer? well what's easier? probably taking another screenshot?
-    // oh if I just take a screenshot of the new region won't it include the shape i darw on screen
-    // to selecta region
 #if defined(__linux__)
     FILE *file = popen("grim -t ppm -", "r");
     char magic[3];
@@ -74,15 +70,17 @@ int main(void) {
     printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
-    switch (region) {
-    case ENTIRE_SCREEN: {
-        ExportImage(image, "image.png");
-        return 0;
-    } break;
-    case SELECTED_REGION: {
-    } break;
-    }
-
+    // switch (capture_mode) {
+    // case CAPTURE_MODE_SCREEN: {
+    //     ExportImage(image, "image.png");
+    //     return 0;
+    // } break;
+    // case CAPTURE_MODE_REGION: {
+    // } break;
+    // case CAPTURE_MODE_WINDOW: {
+    // } break;
+    // }
+    //
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
     while (!WindowShouldClose()) {
@@ -125,7 +123,12 @@ int main(void) {
             cropped.data = cropped_image_pixels;
             cropped.height = height;
             cropped.width = width;
-            ExportImage(cropped, "image.png");
+            int image_size = 0;
+
+            // ExportImage(cropped, "image.png");
+            uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
+            copy_png_to_clipboard(data, image_size);
+
             break;
         }
 
@@ -168,3 +171,8 @@ int main(void) {
 
     return 0;
 }
+
+// pipeline
+// take screenshot - different regions
+// save destination - whats the filename?
+//

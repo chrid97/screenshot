@@ -1,4 +1,5 @@
 #import "capture.h"
+#import <AppKit/AppKit.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/Foundation.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
@@ -106,4 +107,14 @@ struct Screenshot capture_screen(void) {
         dispatch_semaphore_wait(sem, DISPATCH_TIME_FOREVER);
     }
     return result;
+}
+
+void copy_png_to_clipboard(const unsigned char *data, int size) {
+    NSData *png = [NSData dataWithBytes:data length:size];
+
+    NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+
+    [pasteboard clearContents];
+
+    [pasteboard setData:png forType:NSPasteboardTypePNG];
 }

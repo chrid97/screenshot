@@ -4,6 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+static double now_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
+}
 
 typedef enum {
     CAPTURE_MODE_SCREEN,
@@ -20,6 +27,7 @@ int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
     struct Screenshot screenshot = { 0 };
 #if defined(__linux__)
+    double t_capture_start = now_ms();
     FILE *file = popen("grim -t ppm -", "r");
     char magic[3];
     int max_ppm_value = 0;
@@ -33,8 +41,10 @@ int main(void) {
     size_t size = screenshot.width * screenshot.height * 3;
     screenshot.pixels = malloc(size);
     fread(screenshot.pixels, 1, size, file);
-
     pclose(file);
+
+    double t_capture_end = now_ms();
+    printf("capture: %.2f ms\n", t_capture_end - t_capture_start);
 #elif defined(__APPLE__)
     screenshot = capture_screen();
 #elif defined(_WIN32)
@@ -51,7 +61,7 @@ int main(void) {
     pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
     bytes_per_pixel = 4;
 #endif
-
+    double t_window_start = now_ms();
     Image image = {
         .data = screenshot.pixels,
         .width = screenshot.width,
@@ -61,15 +71,29 @@ int main(void) {
     };
 
     SetTraceLogLevel(LOG_ERROR);
-    SetConfigFlags(FLAG_WINDOW_HIGHDPI);
+    // SetConfigFlags(FLAG_WINDOW_HIGHDPI);
 
-    InitWindow(1, 1, "Screenshot");
+    double t = now_ms();
+    int monitor = GetCurrentMonitor();
+    int w = GetMonitorWidth(monitor);
+    int h = GetMonitorHeight(monitor);
+
+    SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_UNDECORATED);
+    InitWindow(w, h, "Screenshot");
+    printf("InitWindow: %.2f ms\n", now_ms() - t);
+
+    t = now_ms();
     ToggleBorderlessWindowed();
+    printf("ToggleBorderlessWindowed: %.2f ms\n", now_ms() - t);
+
+    double t_window_end = now_ms();
+    printf("window creation: %.2f ms\n", t_window_end - t_window_start);
 
     Texture2D texture = LoadTextureFromImage(image);
     printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
+    // return 0;
     // switch (capture_mode) {
     // case CAPTURE_MODE_SCREEN: {
     //     ExportImage(image, "image.png");
@@ -132,8 +156,8 @@ int main(void) {
             fwrite(data, 1, image_size, pipe);
 #elif defined(__APPLE__)
             copy_png_to_clipboard(data, image_size);
-            break;
 #endif
+            break;
         }
 
         BeginDrawing();

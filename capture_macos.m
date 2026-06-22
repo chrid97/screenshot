@@ -41,6 +41,7 @@ struct Screenshot capture_screen(void) {
 
                                        config.width = display.width * result.scale;
                                        config.height = display.height * result.scale;
+                                       config.showsCursor = NO;
 
                                        [SCScreenshotManager
                                            captureImageWithFilter:filter

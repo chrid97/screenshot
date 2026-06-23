@@ -118,7 +118,6 @@ int main(void) {
         }
 
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            printf("Initial %f, %f\n", initial_mouse_position.x, initial_mouse_position.y);
             printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
 
             // ON macos screenshots are in retina space
@@ -132,14 +131,20 @@ int main(void) {
             int x2 = (int)(current_mouse_position.x * scale_x);
             int y2 = (int)(current_mouse_position.y * scale_y);
 
-            int width = x2 - x1;
-            int height = y2 - y1;
+            int left = x1 < x2 ? x1 : x2;
+            int right = x1 > x2 ? x1 : x2;
+            int top = y1 < y2 ? y1 : y2;
+            int bottom = y1 > y2 ? y1 : y2;
+
+            int width = abs(right - left);
+            int height = abs(top - bottom);
             unsigned char *cropped_image_pixels = malloc(width * height * bytes_per_pixel);
 
             unsigned char *pixels = image.data;
-            for (int y = y1; y < y2; y++) {
-                unsigned char *src = pixels + (y * image.width + x1) * bytes_per_pixel;
-                unsigned char *dst = cropped_image_pixels + ((y - y1) * width * bytes_per_pixel);
+            for (int y = top; y < bottom; y++) {
+                printf("%d\n", y * image.width + x1);
+                unsigned char *src = pixels + (y * image.width + left) * bytes_per_pixel;
+                unsigned char *dst = cropped_image_pixels + ((y - top) * width * bytes_per_pixel);
                 memcpy(dst, src, width * bytes_per_pixel);
             }
 

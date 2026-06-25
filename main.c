@@ -1,5 +1,6 @@
 #include "capture.h"
 #include "raylib.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +40,7 @@ int main(void) {
 
     // why use size_t not int?
     size_t size = screenshot.width * screenshot.height * 3;
-    screenshot.pixels = malloc(size);
+    screenshot.pixels = (uint8_t *)malloc(size);
     fread(screenshot.pixels, 1, size, file);
     pclose(file);
 
@@ -62,13 +63,19 @@ int main(void) {
     bytes_per_pixel = 4;
 #endif
     double t_window_start = now_ms();
-    Image image = {
+    Image original_image = {
         .data = screenshot.pixels,
         .width = screenshot.width,
         .height = screenshot.height,
         .mipmaps = 1,
         .format = pixel_format,
     };
+
+    Image image = original_image;
+
+    size = screenshot.height * screenshot.width * bytes_per_pixel;
+    image.data = (uint8_t *)malloc(size);
+    memcpy(image.data, original_image.data, size);
 
     SetTraceLogLevel(LOG_ERROR);
     // SetConfigFlags(FLAG_WINDOW_HIGHDPI);
@@ -107,6 +114,9 @@ int main(void) {
     //
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
+
+    uint8_t *pixels = (uint8_t *)image.data;
+    bool is_draw = true;
     while (!WindowShouldClose()) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             initial_mouse_position = GetMousePosition();
@@ -138,7 +148,7 @@ int main(void) {
 
             int width = abs(right - left);
             int height = abs(top - bottom);
-            unsigned char *cropped_image_pixels = malloc(width * height * bytes_per_pixel);
+            uint8_t *cropped_image_pixels = (uint8_t *)malloc(width * height * bytes_per_pixel);
 
             unsigned char *pixels = image.data;
             for (int y = top; y < bottom; y++) {
@@ -162,7 +172,9 @@ int main(void) {
 #elif defined(__APPLE__)
             copy_png_to_clipboard(data, image_size);
 #endif
-            break;
+            if (!is_draw) {
+                break;
+            }
         }
 
         BeginDrawing();
@@ -190,10 +202,29 @@ int main(void) {
         int dash_size = 15;
         int gap = 15;
         Color color = RED;
-        DrawLineDashed(top_left, top_right, dash_size, gap, color);
-        DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
-        DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);
-        DrawLineDashed(bottom_left, top_left, dash_size, gap, color);
+
+        if (is_draw) {
+            int index = (current_mouse_position.y * image.width + current_mouse_position.x) *
+                        bytes_per_pixel;
+            pixels[index] = 255;
+            pixels[index + 1] = 255;
+            pixels[index + 2] = 255;
+            if (bytes_per_pixel == 4) {
+                pixels[index + 3] = 255;
+            }
+            UpdateTexture(texture, image.data);
+
+            // DrawRectangleLines(top_left.x,
+            //                    top_left.y,
+            //                    bottom_right.x - top_left.x,
+            //                    bottom_right.y - top_left.y,
+            //                    color);
+        } else {
+            DrawLineDashed(top_left, top_right, dash_size, gap, color);
+            DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
+            DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);
+            DrawLineDashed(bottom_left, top_left, dash_size, gap, color);
+        }
 
         EndDrawing();
     }

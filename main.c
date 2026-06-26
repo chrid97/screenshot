@@ -13,6 +13,9 @@ static double now_ms(void) {
     return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
 }
 
+// (CG) Might wanna split out action capture, maybe make a tagged union
+typedef enum { ACTION_RECTANGLE, ACTION_LINE, ACTION_FREEHAND, ACTION_CAPTURE } Draw;
+
 typedef enum {
     CAPTURE_MODE_SCREEN,
     CAPTURE_MODE_REGION,
@@ -26,6 +29,11 @@ typedef enum {
 
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
+    Draw action = ACTION_FREEHAND;
+
+    // ============================================================================
+    // Capture Screenshot
+    // ============================================================================
     struct Screenshot screenshot = { 0 };
 #if defined(__linux__)
     double t_capture_start = now_ms();
@@ -78,8 +86,11 @@ int main(void) {
     memcpy(image.data, original_image.data, size);
 
     SetTraceLogLevel(LOG_ERROR);
-    // SetConfigFlags(FLAG_WINDOW_HIGHDPI);
+    SetTargetFPS(60);
 
+    // ============================================================================
+    // Open raylib window
+    // ============================================================================
     double t = now_ms();
     int monitor = GetCurrentMonitor();
     int w = GetMonitorWidth(monitor);
@@ -100,24 +111,27 @@ int main(void) {
     printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
     printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
-    // return 0;
-    // switch (capture_mode) {
-    // case CAPTURE_MODE_SCREEN: {
-    //     ExportImage(image, "image.png");
-    //     return 0;
-    // } break;
-    // case CAPTURE_MODE_REGION: {
-    // } break;
-    // case CAPTURE_MODE_WINDOW: {
-    // } break;
-    // }
-    //
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
 
     uint8_t *pixels = (uint8_t *)image.data;
-    bool is_draw = true;
     while (!WindowShouldClose()) {
+        // initial_mouse_position = (Vector2){ 0 };
+        current_mouse_position = (Vector2){ 0 };
+
+        if (IsKeyPressed(KEY_ONE)) {
+            action = ACTION_CAPTURE;
+        }
+        if (IsKeyPressed(KEY_TWO)) {
+            action = ACTION_RECTANGLE;
+        }
+        if (IsKeyPressed(KEY_THREE)) {
+            action = ACTION_LINE;
+        }
+        if (IsKeyPressed(KEY_FOUR)) {
+            action = ACTION_FREEHAND;
+        }
+
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             initial_mouse_position = GetMousePosition();
             printf("%f, %f\n", GetMousePosition().x, GetMousePosition().y);
@@ -125,9 +139,33 @@ int main(void) {
 
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
             current_mouse_position = GetMousePosition();
+
+            switch (action) {
+            case ACTION_CAPTURE: {
+                break;
+            }
+            case ACTION_FREEHAND: {
+                int index = (current_mouse_position.y * image.width + current_mouse_position.x) *
+                            bytes_per_pixel;
+                pixels[index] = 255;
+                pixels[index + 1] = 255;
+                pixels[index + 2] = 255;
+                if (bytes_per_pixel == 4) {
+                    pixels[index + 3] = 0;
+                }
+                UpdateTexture(texture, image.data);
+                break;
+            };
+            case ACTION_LINE: {
+                break;
+            }
+            case ACTION_RECTANGLE: {
+                break;
+            }
+            }
         }
 
-        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+        if (action == ACTION_CAPTURE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
 
             // ON macos screenshots are in retina space
@@ -152,7 +190,6 @@ int main(void) {
 
             unsigned char *pixels = image.data;
             for (int y = top; y < bottom; y++) {
-                printf("%d\n", y * image.width + x1);
                 unsigned char *src = pixels + (y * image.width + left) * bytes_per_pixel;
                 unsigned char *dst = cropped_image_pixels + ((y - top) * width * bytes_per_pixel);
                 memcpy(dst, src, width * bytes_per_pixel);
@@ -172,11 +209,13 @@ int main(void) {
 #elif defined(__APPLE__)
             copy_png_to_clipboard(data, image_size);
 #endif
-            if (!is_draw) {
-                break;
-            }
+
+            break;
         }
 
+        // ============================================================================
+        //  Drawing
+        // ============================================================================
         BeginDrawing();
         ClearBackground(BLACK);
 
@@ -203,23 +242,7 @@ int main(void) {
         int gap = 15;
         Color color = RED;
 
-        if (is_draw) {
-            int index = (current_mouse_position.y * image.width + current_mouse_position.x) *
-                        bytes_per_pixel;
-            pixels[index] = 255;
-            pixels[index + 1] = 255;
-            pixels[index + 2] = 255;
-            if (bytes_per_pixel == 4) {
-                pixels[index + 3] = 255;
-            }
-            UpdateTexture(texture, image.data);
-
-            // DrawRectangleLines(top_left.x,
-            //                    top_left.y,
-            //                    bottom_right.x - top_left.x,
-            //                    bottom_right.y - top_left.y,
-            //                    color);
-        } else {
+        if (action == ACTION_CAPTURE) {
             DrawLineDashed(top_left, top_right, dash_size, gap, color);
             DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
             DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);

@@ -30,11 +30,12 @@ typedef enum {
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
     Draw action = ACTION_FREEHAND;
+    size_t size = 0;
 
     // ============================================================================
     // Capture Screenshot
     // ============================================================================
-    struct Screenshot screenshot = { 0 };
+    Screenshot screenshot = { 0 };
 #if defined(__linux__)
     double t_capture_start = now_ms();
     FILE *file = popen("grim -t ppm -", "r");
@@ -47,7 +48,7 @@ int main(void) {
     fgetc(file); // consume newline after 255
 
     // why use size_t not int?
-    size_t size = screenshot.width * screenshot.height * 3;
+    size = screenshot.width * screenshot.height * 3;
     screenshot.pixels = (uint8_t *)malloc(size);
     fread(screenshot.pixels, 1, size, file);
     pclose(file);
@@ -57,6 +58,7 @@ int main(void) {
 #elif defined(__APPLE__)
     screenshot = capture_screen();
 #elif defined(_WIN32)
+    screenshot = capture_screen();
 #else
 #error Unsupported platform
 #endif
@@ -67,6 +69,9 @@ int main(void) {
     pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
     bytes_per_pixel = 3;
 #elif defined(__APPLE__)
+    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    bytes_per_pixel = 4;
+#elif defined(_WIN32)
     pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
     bytes_per_pixel = 4;
 #endif
@@ -145,13 +150,17 @@ int main(void) {
                 break;
             }
             case ACTION_FREEHAND: {
-                int index = (current_mouse_position.y * image.width + current_mouse_position.x) *
-                            bytes_per_pixel;
+                float scale_x = (float)image.width / (float)GetScreenWidth();
+                float scale_y = (float)image.height / (float)GetScreenHeight();
+                int y = scale_y * current_mouse_position.y;
+                int x = scale_x * current_mouse_position.x;
+
+                int index = (y * image.width + x) * bytes_per_pixel;
                 pixels[index] = 255;
                 pixels[index + 1] = 255;
                 pixels[index + 2] = 255;
                 if (bytes_per_pixel == 4) {
-                    pixels[index + 3] = 0;
+                    pixels[index + 3] = 255;
                 }
                 UpdateTexture(texture, image.data);
                 break;
@@ -203,6 +212,8 @@ int main(void) {
 
             // ExportImage(cropped, "image.png");
             uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
+            UnloadFileData(data);
+            free(cropped_image_pixels);
 #if defined(__linux__)
             FILE *pipe = popen("wl-copy --type image/png", "w");
             fwrite(data, 1, image_size, pipe);
@@ -262,4 +273,3 @@ int main(void) {
 // pipeline
 // take screenshot - different regions
 // save destination - whats the filename?
-//

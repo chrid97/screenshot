@@ -12,6 +12,9 @@ static double now_ms(void) {
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
 }
+static inline int min_int(int a, int b) { return a < b ? a : b; }
+
+static inline int max_int(int a, int b) { return a > b ? a : b; }
 
 // (CG) Might wanna split out action capture, maybe make a tagged union
 typedef enum { ACTION_RECTANGLE, ACTION_LINE, ACTION_FREEHAND, ACTION_CAPTURE } Draw;
@@ -29,11 +32,11 @@ typedef enum {
 
 // (CG) Compile time constants for default values?
 Color stroke_color = RED;
-int stroke_width = 10;
+int stroke_width = 2;
 
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
-    Draw action = ACTION_FREEHAND;
+    Draw action = ACTION_CAPTURE;
     size_t size = 0;
     int pixel_format = 0;
     int bytes_per_pixel = 0;
@@ -122,6 +125,9 @@ int main(void) {
     Vector2 previous_mouse_position = { 0 };
 
     while (!WindowShouldClose()) {
+        float scale_x = (float)image.width / (float)GetScreenWidth();
+        float scale_y = (float)image.height / (float)GetScreenHeight();
+
         bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsKeyPressed(KEY_ONE)) {
@@ -146,131 +152,87 @@ int main(void) {
         }
 
         if (mouse_down) {
-            // (CG) I don't 100% understand why adding a previous mouse position fixed the dotted
-            // lines. So I'll have to think about it some more or get a pen and paper
             previous_mouse_position = current_mouse_position;
             current_mouse_position = GetMousePosition();
-
-            switch (action) {
-            case ACTION_CAPTURE: {
-                break;
-            }
-            case ACTION_FREEHAND: {
-                float scale_x = (float)image.width / (float)GetScreenWidth();
-                float scale_y = (float)image.height / (float)GetScreenHeight();
-
-                int curr_x = current_mouse_position.x * scale_x;
-                int curr_y = current_mouse_position.y * scale_y;
-
-                int prev_x = previous_mouse_position.x * scale_x;
-                int prev_y = previous_mouse_position.y * scale_y;
-
-                ImageDrawLine(&image, prev_x, prev_y, curr_x, curr_y, WHITE);
-                UpdateTexture(texture, image.data);
-                break;
-            };
-            case ACTION_LINE: {
-                float scale_x = (float)image.width / (float)GetScreenWidth();
-                float scale_y = (float)image.height / (float)GetScreenHeight();
-                // (CG) I don't want to update the buffer until I release my mouse
-                // so I should draw on the screen and here only update on release
-                // maybe this entire statement should only execute on mouse released
-                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-                    ImageDrawLine(&image,
-                                  initial_mouse_position.x * scale_x,
-                                  initial_mouse_position.y * scale_y,
-                                  current_mouse_position.x * scale_x,
-                                  current_mouse_position.y * scale_y,
-                                  stroke_color);
-                    UpdateTexture(texture, image.data);
-                }
-                break;
-            }
-            case ACTION_RECTANGLE: {
-                break;
-            }
-            }
         }
 
-        if (action == ACTION_LINE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            float scale_x = (float)image.width / (float)GetScreenWidth();
-            float scale_y = (float)image.height / (float)GetScreenHeight();
-            // (CG) I don't want to update the buffer until I release my mouse
-            // so I should draw on the screen and here only update on release
-            // maybe this entire statement should only execute on mouse released
-            ImageDrawLine(&image,
-                          initial_mouse_position.x * scale_x,
-                          initial_mouse_position.y * scale_y,
-                          current_mouse_position.x * scale_x,
-                          current_mouse_position.y * scale_y,
-                          stroke_color);
+        int curr_x = current_mouse_position.x * scale_x;
+        int curr_y = current_mouse_position.y * scale_y;
+        int initial_x = initial_mouse_position.x * scale_x;
+        int initial_y = initial_mouse_position.y * scale_y;
+
+        if (mouse_down && action == ACTION_FREEHAND) {
+            int prev_x = previous_mouse_position.x * scale_x;
+            int prev_y = previous_mouse_position.y * scale_y;
+
+            ImageDrawLine(&image, prev_x, prev_y, curr_x, curr_y, WHITE);
             UpdateTexture(texture, image.data);
         }
 
-        if (action == ACTION_RECTANGLE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            float scale_x = (float)image.width / (float)GetScreenWidth();
-            float scale_y = (float)image.height / (float)GetScreenHeight();
-            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-                ImageDrawRectangleLines(
-                    &image,
-                    initial_mouse_position.x * scale_x,
-                    initial_mouse_position.y * scale_y,
-
-                    (current_mouse_position.x - initial_mouse_position.x) * scale_x,
-                    (current_mouse_position.y - initial_mouse_position.y) * scale_y,
-                    stroke_color);
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            switch (action) {
+            case ACTION_FREEHAND:
+                break;
+            case ACTION_RECTANGLE: {
+                ImageDrawRectangleLines(&image,
+                                        initial_x,
+                                        initial_y,
+                                        curr_x - initial_x,
+                                        curr_y - initial_y,
+                                        stroke_color);
                 UpdateTexture(texture, image.data);
+                break;
             }
-        }
+            case ACTION_LINE: {
+                ImageDrawLine(&image, initial_x, initial_y, curr_x, curr_y, stroke_color);
+                UpdateTexture(texture, image.data);
+                break;
+            };
+            case ACTION_CAPTURE: {
+                // ON macos screenshots are in retina space
+                // mouse is in screen space
+                // we want to scale mosue coords up to retina space
+                int left = min_int(initial_x, curr_x);
+                int right = max_int(initial_x, curr_x);
+                int top = min_int(initial_y, curr_y);
+                int bottom = max_int(initial_y, curr_y);
 
-        if (action == ACTION_CAPTURE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            printf("On release %f, %f\n", current_mouse_position.x, current_mouse_position.y);
+                int width = abs(right - left);
+                int height = abs(bottom - top);
+                uint8_t *cropped_image_pixels = (uint8_t *)malloc(width * height * bytes_per_pixel);
 
-            // ON macos screenshots are in retina space
-            // mouse is in screen space
-            // we want to scale mosue coords up to retina space
-            float scale_x = (float)image.width / (float)GetScreenWidth();
-            float scale_y = (float)image.height / (float)GetScreenHeight();
+                unsigned char *pixels = image.data;
+                for (int y = top; y < bottom; y++) {
+                    unsigned char *src = pixels + (y * image.width + left) * bytes_per_pixel;
+                    unsigned char *dst =
+                        cropped_image_pixels + ((y - top) * width * bytes_per_pixel);
+                    memcpy(dst, src, width * bytes_per_pixel);
+                }
 
-            int x1 = (int)(initial_mouse_position.x * scale_x);
-            int y1 = (int)(initial_mouse_position.y * scale_y);
-            int x2 = (int)(current_mouse_position.x * scale_x);
-            int y2 = (int)(current_mouse_position.y * scale_y);
+                Image cropped = image;
+                cropped.data = cropped_image_pixels;
+                cropped.height = height;
+                cropped.width = width;
+                int image_size = 0;
 
-            int left = x1 < x2 ? x1 : x2;
-            int right = x1 > x2 ? x1 : x2;
-            int top = y1 < y2 ? y1 : y2;
-            int bottom = y1 > y2 ? y1 : y2;
-
-            int width = abs(right - left);
-            int height = abs(top - bottom);
-            uint8_t *cropped_image_pixels = (uint8_t *)malloc(width * height * bytes_per_pixel);
-
-            unsigned char *pixels = image.data;
-            for (int y = top; y < bottom; y++) {
-                unsigned char *src = pixels + (y * image.width + left) * bytes_per_pixel;
-                unsigned char *dst = cropped_image_pixels + ((y - top) * width * bytes_per_pixel);
-                memcpy(dst, src, width * bytes_per_pixel);
-            }
-
-            Image cropped = image;
-            cropped.data = cropped_image_pixels;
-            cropped.height = height;
-            cropped.width = width;
-            int image_size = 0;
-
-            // ExportImage(cropped, "image.png");
-            uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
+                // ExportImage(cropped, "image.png");
+                uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
 
 #if defined(__linux__)
-            FILE *pipe = popen("wl-copy --type image/png", "w");
-            fwrite(data, 1, image_size, pipe);
+                FILE *pipe = popen("wl-copy --type image/png", "w");
+                fwrite(data, 1, image_size, pipe);
+                pclose(pipe);
 #elif defined(__APPLE__)
-            copy_png_to_clipboard(data, image_size);
+                copy_png_to_clipboard(data, image_size);
 #endif
-            UnloadFileData(data);
-            free(cropped_image_pixels);
-            break;
+                UnloadFileData(data);
+                free(cropped_image_pixels);
+                // (CG) maybe add a done variable that we set to true here
+                // while (windowlose && !done)
+                CloseWindow();
+                return 0;
+            }
+            }
         }
 
         // ============================================================================
@@ -301,7 +263,7 @@ int main(void) {
 
         int dash_size = 15;
         int gap = 15;
-        Color color = RED;
+        Color color = BLACK;
 
         if (mouse_down && action == ACTION_CAPTURE) {
             DrawLineDashed(top_left, top_right, dash_size, gap, color);
@@ -319,19 +281,21 @@ int main(void) {
         }
 
         if (mouse_down && action == ACTION_RECTANGLE) {
-            DrawRectangleLines(initial_mouse_position.x,
-                               initial_mouse_position.y,
-                               (current_mouse_position.x - initial_mouse_position.x),
-                               (current_mouse_position.y - initial_mouse_position.y),
-                               stroke_color);
+            Rectangle rect = {
+                initial_mouse_position.x,
+                initial_mouse_position.y,
+                (current_mouse_position.x - initial_mouse_position.x),
+                (current_mouse_position.y - initial_mouse_position.y),
+            };
+            DrawRectangleRoundedLinesEx(rect, 0.1f, 8, stroke_width, stroke_color);
         }
 
         EndDrawing();
     }
 
     UnloadTexture(texture);
-    CloseWindow();
     free(screenshot.pixels);
+    CloseWindow();
 
     return 0;
 }

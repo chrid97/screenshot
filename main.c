@@ -27,10 +27,16 @@ typedef enum {
     OUTPUT_DISK,
 } OutputDestination;
 
+// (CG) Compile time constants for default values?
+Color stroke_color = RED;
+int stroke_width = 10;
+
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
     Draw action = ACTION_FREEHAND;
     size_t size = 0;
+    int pixel_format = 0;
+    int bytes_per_pixel = 0;
 
     // ============================================================================
     // Capture Screenshot
@@ -55,26 +61,21 @@ int main(void) {
 
     double t_capture_end = now_ms();
     printf("capture: %.2f ms\n", t_capture_end - t_capture_start);
+
+    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
+    bytes_per_pixel = 3;
 #elif defined(__APPLE__)
     screenshot = capture_screen();
+    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    bytes_per_pixel = 4;
 #elif defined(_WIN32)
+    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
+    bytes_per_pixel = 4;
     screenshot = capture_screen();
 #else
 #error Unsupported platform
 #endif
 
-    int pixel_format = 0;
-    int bytes_per_pixel = 0;
-#if defined(__linux__)
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
-    bytes_per_pixel = 3;
-#elif defined(__APPLE__)
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    bytes_per_pixel = 4;
-#elif defined(_WIN32)
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    bytes_per_pixel = 4;
-#endif
     double t_window_start = now_ms();
     Image original_image = {
         .data = screenshot.pixels,
@@ -118,11 +119,11 @@ int main(void) {
 
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
+    Vector2 previous_mouse_position = { 0 };
 
-    uint8_t *pixels = (uint8_t *)image.data;
+    // uint8_t *pixels = (uint8_t *)image.data;
     while (!WindowShouldClose()) {
-        // initial_mouse_position = (Vector2){ 0 };
-        current_mouse_position = (Vector2){ 0 };
+        bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsKeyPressed(KEY_ONE)) {
             action = ACTION_CAPTURE;
@@ -139,10 +140,14 @@ int main(void) {
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             initial_mouse_position = GetMousePosition();
-            printf("%f, %f\n", GetMousePosition().x, GetMousePosition().y);
+            current_mouse_position = GetMousePosition();
+            printf("Initial mouse position %f, %f\n", GetMousePosition().x, GetMousePosition().y);
         }
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+        if (mouse_down) {
+            // (CG) I don't 100% understand why adding a previous mouse position fixed the dotted
+            // lines. So I'll have to think about it some more or get a pen and paper
+            previous_mouse_position = current_mouse_position;
             current_mouse_position = GetMousePosition();
 
             switch (action) {
@@ -152,16 +157,14 @@ int main(void) {
             case ACTION_FREEHAND: {
                 float scale_x = (float)image.width / (float)GetScreenWidth();
                 float scale_y = (float)image.height / (float)GetScreenHeight();
-                int y = scale_y * current_mouse_position.y;
-                int x = scale_x * current_mouse_position.x;
 
-                int index = (y * image.width + x) * bytes_per_pixel;
-                pixels[index] = 255;
-                pixels[index + 1] = 255;
-                pixels[index + 2] = 255;
-                if (bytes_per_pixel == 4) {
-                    pixels[index + 3] = 255;
-                }
+                int curr_x = current_mouse_position.x * scale_x;
+                int curr_y = current_mouse_position.y * scale_y;
+
+                int prev_x = previous_mouse_position.x * scale_x;
+                int prev_y = previous_mouse_position.y * scale_y;
+
+                ImageDrawLine(&image, prev_x, prev_y, curr_x, curr_y, WHITE);
                 UpdateTexture(texture, image.data);
                 break;
             };
@@ -212,15 +215,17 @@ int main(void) {
 
             // ExportImage(cropped, "image.png");
             uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
-            UnloadFileData(data);
-            free(cropped_image_pixels);
+
 #if defined(__linux__)
             FILE *pipe = popen("wl-copy --type image/png", "w");
             fwrite(data, 1, image_size, pipe);
 #elif defined(__APPLE__)
             copy_png_to_clipboard(data, image_size);
 #endif
-
+            UnloadFileData(data);
+            free(cropped_image_pixels);
+            // initial_mouse_position = (Vector2){ 0, 0 };
+            // current_mouse_position = (Vector2){ 0, 0 };
             break;
         }
 
@@ -236,6 +241,7 @@ int main(void) {
         DrawTexturePro(texture, src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
 
         // Draw selected region
+        // (CG) this assumes i only ever start a rect from the topleft
         Vector2 top_left = initial_mouse_position;
         Vector2 bottom_right = current_mouse_position;
 
@@ -253,7 +259,7 @@ int main(void) {
         int gap = 15;
         Color color = RED;
 
-        if (action == ACTION_CAPTURE) {
+        if (mouse_down && action == ACTION_CAPTURE) {
             DrawLineDashed(top_left, top_right, dash_size, gap, color);
             DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
             DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);
@@ -269,7 +275,3 @@ int main(void) {
 
     return 0;
 }
-
-// pipeline
-// take screenshot - different regions
-// save destination - whats the filename?

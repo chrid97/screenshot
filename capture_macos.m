@@ -4,8 +4,8 @@
 #import <Foundation/Foundation.h>
 #import <ScreenCaptureKit/ScreenCaptureKit.h>
 
-struct Screenshot capture_screen(void) {
-    __block struct Screenshot result = { 0 };
+Screenshot capture_screen(void) {
+    __block Screenshot result = { 0 };
     @autoreleasepool {
         dispatch_semaphore_t sem = dispatch_semaphore_create(0);
 

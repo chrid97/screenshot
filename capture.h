@@ -1,13 +1,13 @@
 #pragma once
 
-struct Screenshot {
+typedef struct {
     int width;
     int height;
     int stride;
     int scale;
     unsigned char *pixels;
-};
+} Screenshot;
 
-struct Screenshot capture_screen(void);
+Screenshot capture_screen(void);
 
 void copy_png_to_clipboard(const unsigned char *data, int size);

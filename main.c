@@ -121,7 +121,6 @@ int main(void) {
     Vector2 current_mouse_position = { 0 };
     Vector2 previous_mouse_position = { 0 };
 
-    // uint8_t *pixels = (uint8_t *)image.data;
     while (!WindowShouldClose()) {
         bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
@@ -139,6 +138,8 @@ int main(void) {
         }
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            // (CG) It might not be obvious why I set current_mouse_position here so maybe there's a
+            // different way I can do this so its clear
             initial_mouse_position = GetMousePosition();
             current_mouse_position = GetMousePosition();
             printf("Initial mouse position %f, %f\n", GetMousePosition().x, GetMousePosition().y);
@@ -169,11 +170,56 @@ int main(void) {
                 break;
             };
             case ACTION_LINE: {
+                float scale_x = (float)image.width / (float)GetScreenWidth();
+                float scale_y = (float)image.height / (float)GetScreenHeight();
+                // (CG) I don't want to update the buffer until I release my mouse
+                // so I should draw on the screen and here only update on release
+                // maybe this entire statement should only execute on mouse released
+                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                    ImageDrawLine(&image,
+                                  initial_mouse_position.x * scale_x,
+                                  initial_mouse_position.y * scale_y,
+                                  current_mouse_position.x * scale_x,
+                                  current_mouse_position.y * scale_y,
+                                  stroke_color);
+                    UpdateTexture(texture, image.data);
+                }
                 break;
             }
             case ACTION_RECTANGLE: {
                 break;
             }
+            }
+        }
+
+        if (action == ACTION_LINE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            float scale_x = (float)image.width / (float)GetScreenWidth();
+            float scale_y = (float)image.height / (float)GetScreenHeight();
+            // (CG) I don't want to update the buffer until I release my mouse
+            // so I should draw on the screen and here only update on release
+            // maybe this entire statement should only execute on mouse released
+            ImageDrawLine(&image,
+                          initial_mouse_position.x * scale_x,
+                          initial_mouse_position.y * scale_y,
+                          current_mouse_position.x * scale_x,
+                          current_mouse_position.y * scale_y,
+                          stroke_color);
+            UpdateTexture(texture, image.data);
+        }
+
+        if (action == ACTION_RECTANGLE && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            float scale_x = (float)image.width / (float)GetScreenWidth();
+            float scale_y = (float)image.height / (float)GetScreenHeight();
+            if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                ImageDrawRectangleLines(
+                    &image,
+                    initial_mouse_position.x * scale_x,
+                    initial_mouse_position.y * scale_y,
+
+                    (current_mouse_position.x - initial_mouse_position.x) * scale_x,
+                    (current_mouse_position.y - initial_mouse_position.y) * scale_y,
+                    stroke_color);
+                UpdateTexture(texture, image.data);
             }
         }
 
@@ -224,8 +270,6 @@ int main(void) {
 #endif
             UnloadFileData(data);
             free(cropped_image_pixels);
-            // initial_mouse_position = (Vector2){ 0, 0 };
-            // current_mouse_position = (Vector2){ 0, 0 };
             break;
         }
 
@@ -264,6 +308,22 @@ int main(void) {
             DrawLineDashed(top_right, bottom_right, dash_size, gap, color);
             DrawLineDashed(bottom_right, bottom_left, dash_size, gap, color);
             DrawLineDashed(bottom_left, top_left, dash_size, gap, color);
+        }
+
+        if (mouse_down && action == ACTION_LINE) {
+            DrawLine(initial_mouse_position.x,
+                     initial_mouse_position.y,
+                     current_mouse_position.x,
+                     current_mouse_position.y,
+                     stroke_color);
+        }
+
+        if (mouse_down && action == ACTION_RECTANGLE) {
+            DrawRectangleLines(initial_mouse_position.x,
+                               initial_mouse_position.y,
+                               (current_mouse_position.x - initial_mouse_position.x),
+                               (current_mouse_position.y - initial_mouse_position.y),
+                               stroke_color);
         }
 
         EndDrawing();

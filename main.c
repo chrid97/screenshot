@@ -7,6 +7,11 @@
 #include <string.h>
 #include <time.h>
 
+Color CHARCOAL_OLIVE = { 26, 26, 20, 255 };
+Color MIDNIGHT_BLUE = { 23, 56, 98, 255 };
+Color ALABASTER = { 244, 241, 234, 255 };
+Color HOTKEY = { 150, 145, 135, 255 }; // #969187
+
 static double now_ms(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -165,7 +170,7 @@ int main(void) {
             int prev_x = previous_mouse_position.x * scale_x;
             int prev_y = previous_mouse_position.y * scale_y;
 
-            ImageDrawLine(&image, prev_x, prev_y, curr_x, curr_y, WHITE);
+            ImageDrawLine(&image, prev_x, prev_y, curr_x, curr_y, stroke_color);
             UpdateTexture(texture, image.data);
         }
 
@@ -290,6 +295,109 @@ int main(void) {
             DrawRectangleRoundedLinesEx(rect, 0.1f, 8, stroke_width, stroke_color);
         }
 
+        // ============================================================================
+        // UI Overlay
+        // ============================================================================
+        const int button_count = 4;
+
+        const float button_size = 36.0f;
+        const float icon_size = 16.0f;
+        const float padding = 4.0f;
+        const float gap1 = 5.0f;
+        const float top_margin = 10.0f;
+
+        const float toolbar_w =
+            padding * 2 + button_count * button_size + (button_count - 1) * gap1;
+        const float toolbar_h = padding * 2 + button_size;
+
+        Rectangle toolbar = {
+            .x = GetScreenWidth() / 2.0f - toolbar_w / 2.0f,
+            .y = top_margin,
+            .width = toolbar_w,
+            .height = toolbar_h,
+        };
+
+        DrawRectangleRounded(toolbar, 0.35f, 8, CHARCOAL_OLIVE);
+
+        for (int i = 0; i < button_count; i++) {
+            Rectangle button = {
+                .x = toolbar.x + padding + i * (button_size + gap1),
+                .y = toolbar.y + padding,
+                .width = button_size,
+                .height = button_size,
+            };
+
+            Draw action_for_button = ACTION_CAPTURE;
+            if (i == 1)
+                action_for_button = ACTION_RECTANGLE;
+            if (i == 2)
+                action_for_button = ACTION_LINE;
+            if (i == 3)
+                action_for_button = ACTION_FREEHAND;
+
+            if (action == action_for_button) {
+                DrawRectangleRounded(button, 0.35f, 8, MIDNIGHT_BLUE);
+            }
+
+            Vector2 center = {
+                button.x + button.width / 2.0f,
+                button.y + button.height / 2.0f,
+            };
+
+            if (action_for_button == ACTION_RECTANGLE) {
+                Rectangle icon = {
+                    center.x - icon_size / 2.0f,
+                    center.y - icon_size / 2.0f,
+                    icon_size,
+                    icon_size,
+                };
+                DrawRectangleRoundedLinesEx(icon, 0.15f, 4, 1.0f, ALABASTER);
+            }
+
+            if (action_for_button == ACTION_LINE) {
+                DrawLineEx((Vector2){ center.x - 8, center.y + 8 },
+                           (Vector2){ center.x + 8, center.y - 8 },
+                           1.5f,
+                           ALABASTER);
+            }
+
+            if (action_for_button == ACTION_FREEHAND) {
+                Vector2 points[] = {
+                    { center.x - 8, center.y + 1 }, { center.x - 5, center.y - 4 },
+                    { center.x - 2, center.y - 2 }, { center.x + 1, center.y + 4 },
+                    { center.x + 4, center.y - 1 }, { center.x + 8, center.y + 2 },
+                };
+
+                for (int i = 0; i < 5; i++) {
+                    DrawLineEx(points[i], points[i + 1], 1.5f, ALABASTER);
+                }
+            }
+
+            if (action_for_button == ACTION_CAPTURE) {
+                Vector2 top_left = { center.x - 8, center.y - 6 };
+                Vector2 top_right = { center.x + 8, center.y - 6 };
+                Vector2 bottom_right = { center.x + 8, center.y + 6 };
+                Vector2 bottom_left = { center.x - 8, center.y + 6 };
+
+                DrawLineDashed(top_left, top_right, 3, 2, ALABASTER);
+                DrawLineDashed(top_right, bottom_right, 3, 2, ALABASTER);
+                DrawLineDashed(bottom_right, bottom_left, 3, 2, ALABASTER);
+                DrawLineDashed(bottom_left, top_left, 3, 2, ALABASTER);
+            }
+
+            char label[2];
+            label[0] = '1' + i;
+            label[1] = '\0';
+
+            int font_size = 10;
+            int text_width = MeasureText(label, font_size);
+
+            DrawText(label,
+                     button.x + button.width - text_width - 3,
+                     button.y + button.height - font_size - 2,
+                     font_size,
+                     HOTKEY);
+        }
         EndDrawing();
     }
 

@@ -179,12 +179,16 @@ int main(void) {
             case ACTION_FREEHAND:
                 break;
             case ACTION_RECTANGLE: {
-                ImageDrawRectangleLines(&image,
-                                        initial_x,
-                                        initial_y,
-                                        curr_x - initial_x,
-                                        curr_y - initial_y,
-                                        stroke_color);
+                int left = min_int(initial_mouse_position.x, current_mouse_position.x);
+                int right = max_int(initial_mouse_position.x, current_mouse_position.x);
+                int top = min_int(initial_mouse_position.y, current_mouse_position.y);
+                int bottom = max_int(initial_mouse_position.y, current_mouse_position.y);
+                Rectangle rect = {
+                    left,
+                    top,
+                };
+                ImageDrawRectangleLines(
+                    &image, left, top, right - left, bottom - top, stroke_color);
                 UpdateTexture(texture, image.data);
                 break;
             }
@@ -286,11 +290,15 @@ int main(void) {
         }
 
         if (mouse_down && action == ACTION_RECTANGLE) {
+            int left = min_int(initial_mouse_position.x, current_mouse_position.x);
+            int right = max_int(initial_mouse_position.x, current_mouse_position.x);
+            int top = min_int(initial_mouse_position.y, current_mouse_position.y);
+            int bottom = max_int(initial_mouse_position.y, current_mouse_position.y);
             Rectangle rect = {
-                initial_mouse_position.x,
-                initial_mouse_position.y,
-                (current_mouse_position.x - initial_mouse_position.x),
-                (current_mouse_position.y - initial_mouse_position.y),
+                left,
+                top,
+                right - left,
+                bottom - top,
             };
             DrawRectangleRoundedLinesEx(rect, 0.1f, 8, stroke_width, stroke_color);
         }

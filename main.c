@@ -1,3 +1,22 @@
+// ============================================================================
+// TODO
+// ============================================================================
+//  - Make saved rectangles rounded
+//  - change the color red
+//  - Add hover to ui overlay
+//  - add capture modes to overlay
+//  - make overlay clickable
+//  - make overlay bigger?
+//  - disable hotkeys when drawing
+//
+// ============================================================================
+// JUICE IDEAS
+// ============================================================================
+// - optional camera flash sound (maybe)
+// - camera flash on screen?
+// - mini image on the bottom right (configurable?)
+// - animated squiggles
+// ============================================================================
 #include "capture.h"
 #include "raylib.h"
 #include <stdbool.h>
@@ -7,11 +26,22 @@
 #include <string.h>
 #include <time.h>
 
+// ============================================================================
+// GLOBALS
+// ============================================================================
 Color CHARCOAL_OLIVE = { 26, 26, 20, 255 };
 Color MIDNIGHT_BLUE = { 23, 56, 98, 255 };
 Color ALABASTER = { 244, 241, 234, 255 };
 Color HOTKEY = { 150, 145, 135, 255 }; // #969187
+#define ACCENT_RED (Color){ 195, 74, 72, 255 }
 
+// (CG) Compile time constants for default values?
+Color stroke_color = ACCENT_RED;
+int stroke_width = 4;
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 static double now_ms(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -21,6 +51,9 @@ static inline int min_int(int a, int b) { return a < b ? a : b; }
 
 static inline int max_int(int a, int b) { return a > b ? a : b; }
 
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
 // (CG) Might wanna split out action capture, maybe make a tagged union
 typedef enum { ACTION_RECTANGLE, ACTION_LINE, ACTION_FREEHAND, ACTION_CAPTURE } Draw;
 
@@ -35,14 +68,14 @@ typedef enum {
     OUTPUT_DISK,
 } OutputDestination;
 
-// (CG) Compile time constants for default values?
-Color stroke_color = RED;
-int stroke_width = 2;
+// ============================================================================
+// CODE
+// ============================================================================
 
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
     Draw action = ACTION_CAPTURE;
-    size_t size = 0;
+    size_t size = 0; // (CG) I forgot that I had this, how do I remember in the future?
     int pixel_format = 0;
     int bytes_per_pixel = 0;
 
@@ -61,7 +94,6 @@ int main(void) {
     fscanf(file, "%d", &max_ppm_value);
     fgetc(file); // consume newline after 255
 
-    // why use size_t not int?
     size = screenshot.width * screenshot.height * 3;
     screenshot.pixels = (uint8_t *)malloc(size);
     fread(screenshot.pixels, 1, size, file);
@@ -132,7 +164,6 @@ int main(void) {
     while (!WindowShouldClose()) {
         float scale_x = (float)image.width / (float)GetScreenWidth();
         float scale_y = (float)image.height / (float)GetScreenHeight();
-
         bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsKeyPressed(KEY_ONE)) {
@@ -174,21 +205,51 @@ int main(void) {
             UpdateTexture(texture, image.data);
         }
 
+        // ============================================================================
+        // Actions
+        // ============================================================================
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             switch (action) {
             case ACTION_FREEHAND:
                 break;
             case ACTION_RECTANGLE: {
-                int left = min_int(initial_mouse_position.x, current_mouse_position.x);
-                int right = max_int(initial_mouse_position.x, current_mouse_position.x);
-                int top = min_int(initial_mouse_position.y, current_mouse_position.y);
-                int bottom = max_int(initial_mouse_position.y, current_mouse_position.y);
+                int left = min_int(initial_x, curr_x);
+                int right = max_int(initial_x, curr_x);
+                int top = min_int(initial_y, curr_y);
+                int bottom = max_int(initial_y, curr_y);
                 Rectangle rect = {
                     left,
                     top,
                 };
-                ImageDrawRectangleLines(
-                    &image, left, top, right - left, bottom - top, stroke_color);
+                int width = right - left;
+                int height = bottom - top;
+
+                // (CG) compare to raylibs draw rectangle lines
+                uint8_t *pixels = (uint8_t *)image.data;
+                for (int y = top; y < bottom; y++) {
+                    for (int x = left; x < right; x++) {
+                        int index = (y * image.width + x) * bytes_per_pixel;
+
+                        int radius = 10;
+                        int r2 = radius * radius;
+                        Vector2 top_left = { left + radius, top + radius };
+                        Vector2 top_right = { right + radius, top + radius };
+                        Vector2 bottom_left = { left + radius, bottom + radius };
+                        Vector2 bottom_right = { right + radius, bottom + radius };
+
+                        // top_left = {};
+                        if (y < top + stroke_width || y >= bottom - stroke_width ||
+                            x < left + stroke_width || x >= right - stroke_width) {
+                            pixels[index + 0] = stroke_color.r;
+                            pixels[index + 1] = stroke_color.g;
+                            pixels[index + 2] = stroke_color.b;
+                            if (bytes_per_pixel == 4) {
+                                pixels[index + 3] = stroke_color.a;
+                            }
+                        }
+                    }
+                }
+
                 UpdateTexture(texture, image.data);
                 break;
             }

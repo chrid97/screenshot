@@ -275,7 +275,12 @@ int main(void) {
                 break;
             }
             case ACTION_LINE: {
-                ImageDrawLine(&image, initial_x, initial_y, curr_x, curr_y, stroke_color);
+                // (CG) make this rounder? or do I have to AA?
+                ImageDrawLineEx(&image,
+                                (Vector2){ initial_x, initial_y },
+                                (Vector2){ curr_x, curr_y },
+                                stroke_width,
+                                stroke_color);
                 UpdateTexture(texture, image.data);
                 break;
             };

@@ -33,11 +33,10 @@ Color CHARCOAL_OLIVE = { 26, 26, 20, 255 };
 Color MIDNIGHT_BLUE = { 23, 56, 98, 255 };
 Color ALABASTER = { 244, 241, 234, 255 };
 Color HOTKEY = { 150, 145, 135, 255 }; // #969187
-#define ACCENT_RED (Color){ 195, 74, 72, 255 }
+#define ACCENT_RED (Color){ 224, 49, 49, 255 }
 
-// (CG) Compile time constants for default values?
 Color stroke_color = ACCENT_RED;
-int stroke_width = 4;
+// int stroke_width = 4;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -71,6 +70,28 @@ typedef enum {
 // ============================================================================
 // CODE
 // ============================================================================
+bool inside_rounded_rect(int x, int y, int top, int left, int right, int bottom, int radius) {
+    int cx = x;
+    int cy = y;
+
+    if (x < left + radius) {
+        cx = left + radius;
+    } else if (x >= right - radius) {
+        cx = right - radius - 1;
+    }
+
+    if (y < top + radius) {
+        cy = top + radius;
+    } else if (y >= bottom - radius) {
+        cy = bottom - radius - 1;
+    }
+
+    int dx = x - cx;
+    int dy = y - cy;
+
+    int distance_squared = dx * dx + dy * dy;
+    return distance_squared <= radius * radius;
+}
 
 int main(void) {
     CaptureMode capture_mode = CAPTURE_MODE_REGION;
@@ -164,6 +185,8 @@ int main(void) {
     while (!WindowShouldClose()) {
         float scale_x = (float)image.width / (float)GetScreenWidth();
         float scale_y = (float)image.height / (float)GetScreenHeight();
+        // (CG) scale by x or y?
+        int stroke_width = 3 * scale_y;
         bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsKeyPressed(KEY_ONE)) {
@@ -221,25 +244,23 @@ int main(void) {
                     left,
                     top,
                 };
-                int width = right - left;
-                int height = bottom - top;
 
-                // (CG) compare to raylibs draw rectangle lines
+                int radius = 10;
+                int r2 = radius * radius;
                 uint8_t *pixels = (uint8_t *)image.data;
                 for (int y = top; y < bottom; y++) {
                     for (int x = left; x < right; x++) {
-                        int index = (y * image.width + x) * bytes_per_pixel;
+                        bool outer = inside_rounded_rect(x, y, top, left, right, bottom, radius);
+                        bool inner = inside_rounded_rect(x,
+                                                         y,
+                                                         top + stroke_width,
+                                                         left + stroke_width,
+                                                         right - stroke_width,
+                                                         bottom - stroke_width,
+                                                         radius);
 
-                        int radius = 10;
-                        int r2 = radius * radius;
-                        Vector2 top_left = { left + radius, top + radius };
-                        Vector2 top_right = { right + radius, top + radius };
-                        Vector2 bottom_left = { left + radius, bottom + radius };
-                        Vector2 bottom_right = { right + radius, bottom + radius };
-
-                        // top_left = {};
-                        if (y < top + stroke_width || y >= bottom - stroke_width ||
-                            x < left + stroke_width || x >= right - stroke_width) {
+                        if (outer && !inner) {
+                            int index = (y * image.width + x) * bytes_per_pixel;
                             pixels[index + 0] = stroke_color.r;
                             pixels[index + 1] = stroke_color.g;
                             pixels[index + 2] = stroke_color.b;

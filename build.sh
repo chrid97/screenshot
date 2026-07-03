@@ -5,12 +5,13 @@ mkdir -p build
 
 RAYLIB_DIR="third-party/raylib/src"
 OUT="build/screenshot"
+CFLAGS="-Wall -Wextra -Wshadow -Wconversion -fsanitize=address,undefined"
 
 make -C "$RAYLIB_DIR" PLATFORM=PLATFORM_DESKTOP
 
 case "$(uname -s)" in
 Linux)
-  clang \
+  clang $CFLAGS \
     main.c \
     "$RAYLIB_DIR/libraylib.a" \
     -I"$RAYLIB_DIR" \

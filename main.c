@@ -1,12 +1,12 @@
 // ============================================================================
 // TODO
 // ============================================================================
-//  - Make saved rectangles rounded
-//  - change the color red
 //  - Add hover to ui overlay
 //  - add capture modes to overlay
+//  - use a preview buffer
 //  - make overlay clickable
 //  - make overlay bigger?
+//  - esc should cancel capture
 //  - disable hotkeys when drawing
 //
 // ============================================================================
@@ -20,6 +20,7 @@
 #include "capture.h"
 #include "raylib.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,7 +116,7 @@ int main(void) {
     fscanf(file, "%d", &max_ppm_value);
     fgetc(file); // consume newline after 255
 
-    size = screenshot.width * screenshot.height * 3;
+    size = (size_t)(screenshot.width * screenshot.height * 3);
     screenshot.pixels = (uint8_t *)malloc(size);
     fread(screenshot.pixels, 1, size, file);
     pclose(file);
@@ -148,7 +149,7 @@ int main(void) {
 
     Image image = original_image;
 
-    size = screenshot.height * screenshot.width * bytes_per_pixel;
+    size = (size_t)(screenshot.height * screenshot.width * bytes_per_pixel);
     image.data = (uint8_t *)malloc(size);
     memcpy(image.data, original_image.data, size);
 
@@ -187,6 +188,10 @@ int main(void) {
         float scale_y = (float)image.height / (float)GetScreenHeight();
         // (CG) scale by x or y?
         int stroke_width = 3 * scale_y;
+
+        // ============================================================================
+        // Input Events
+        // ============================================================================
         bool mouse_down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
 
         if (IsKeyPressed(KEY_ONE)) {
@@ -246,10 +251,9 @@ int main(void) {
                 };
 
                 int radius = 10;
-                int r2 = radius * radius;
                 uint8_t *pixels = (uint8_t *)image.data;
-                for (int y = top; y < bottom; y++) {
-                    for (int x = left; x < right; x++) {
+                for (int y = top; y <= bottom; y++) {
+                    for (int x = left; x <= right; x++) {
                         bool outer = inside_rounded_rect(x, y, top, left, right, bottom, radius);
                         bool inner = inside_rounded_rect(x,
                                                          y,
@@ -313,7 +317,6 @@ int main(void) {
 
                 // ExportImage(cropped, "image.png");
                 uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
-
 #if defined(__linux__)
                 FILE *pipe = popen("wl-copy --type image/png", "w");
                 fwrite(data, 1, image_size, pipe);
@@ -434,11 +437,29 @@ int main(void) {
                 DrawRectangleRounded(button, 0.35f, 8, MIDNIGHT_BLUE);
             }
 
+            Vector2 mouse = GetMousePosition();
+            bool clicked =
+                IsMouseButtonDown(MOUSE_BUTTON_LEFT) && CheckCollisionPointRec(mouse, button);
+
+            bool hovered = CheckCollisionPointRec(mouse, button);
+            Color button_color = BLANK;
+
+            if (action == action_for_button) {
+                button_color = MIDNIGHT_BLUE;
+            } else if (hovered) {
+                button_color = (Color){ 50, 50, 42, 255 };
+            }
+
+            DrawRectangleRounded(button, 0.35f, 8, button_color);
+
             Vector2 center = {
                 button.x + button.width / 2.0f,
                 button.y + button.height / 2.0f,
             };
 
+            // ============================================================================
+            // Draw button icons
+            // ============================================================================
             if (action_for_button == ACTION_RECTANGLE) {
                 Rectangle icon = {
                     center.x - icon_size / 2.0f,
@@ -447,6 +468,10 @@ int main(void) {
                     icon_size,
                 };
                 DrawRectangleRoundedLinesEx(icon, 0.15f, 4, 1.0f, ALABASTER);
+
+                if (clicked) {
+                    action = ACTION_RECTANGLE;
+                }
             }
 
             if (action_for_button == ACTION_LINE) {
@@ -454,6 +479,9 @@ int main(void) {
                            (Vector2){ center.x + 8, center.y - 8 },
                            1.5f,
                            ALABASTER);
+                if (clicked) {
+                    action = ACTION_LINE;
+                }
             }
 
             if (action_for_button == ACTION_FREEHAND) {
@@ -465,6 +493,10 @@ int main(void) {
 
                 for (int i = 0; i < 5; i++) {
                     DrawLineEx(points[i], points[i + 1], 1.5f, ALABASTER);
+                }
+
+                if (clicked) {
+                    action = ACTION_FREEHAND;
                 }
             }
 
@@ -478,6 +510,10 @@ int main(void) {
                 DrawLineDashed(top_right, bottom_right, 3, 2, ALABASTER);
                 DrawLineDashed(bottom_right, bottom_left, 3, 2, ALABASTER);
                 DrawLineDashed(bottom_left, top_left, 3, 2, ALABASTER);
+
+                if (clicked) {
+                    action = ACTION_CAPTURE;
+                }
             }
 
             char label[2];
@@ -488,8 +524,8 @@ int main(void) {
             int text_width = MeasureText(label, font_size);
 
             DrawText(label,
-                     button.x + button.width - text_width - 3,
-                     button.y + button.height - font_size - 2,
+                     (int)(button.x + button.width) - text_width - 3,
+                     (int)(button.y + button.height) - font_size - 2,
                      font_size,
                      HOTKEY);
         }

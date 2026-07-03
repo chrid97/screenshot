@@ -13,6 +13,7 @@ case "$(uname -s)" in
 Linux)
   clang $CFLAGS \
     main.c \
+    capture_linux.c \
     "$RAYLIB_DIR/libraylib.a" \
     -I"$RAYLIB_DIR" \
     -lGL \

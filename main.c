@@ -42,26 +42,13 @@ Color stroke_color = ACCENT_RED;
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
-static double now_ms(void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
-}
 static inline int min_int(int a, int b) { return a < b ? a : b; }
-
 static inline int max_int(int a, int b) { return a > b ? a : b; }
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
-// (CG) Might wanna split out action capture, maybe make a tagged union
 typedef enum { ACTION_RECTANGLE, ACTION_LINE, ACTION_FREEHAND, ACTION_CAPTURE } Draw;
-
-typedef enum {
-    CAPTURE_MODE_SCREEN,
-    CAPTURE_MODE_REGION,
-    CAPTURE_MODE_WINDOW,
-} CaptureMode;
 
 typedef enum {
     OUTPUT_CLIPBOARD,
@@ -95,56 +82,17 @@ bool inside_rounded_rect(int x, int y, int top, int left, int right, int bottom,
 }
 
 int main(void) {
-    CaptureMode capture_mode = CAPTURE_MODE_REGION;
     Draw action = ACTION_CAPTURE;
     size_t size = 0; // (CG) I forgot that I had this, how do I remember in the future?
-    int pixel_format = 0;
-    int bytes_per_pixel = 0;
 
-    // ============================================================================
-    // Capture Screenshot
-    // ============================================================================
-    Screenshot screenshot = { 0 };
-#if defined(__linux__)
-    double t_capture_start = now_ms();
-    FILE *file = popen("grim -t ppm -", "r");
-    char magic[3];
-    int max_ppm_value = 0;
-    fscanf(file, "%2s", magic);
-    // check if ppm image p6
-    fscanf(file, "%d %d", &screenshot.width, &screenshot.height);
-    fscanf(file, "%d", &max_ppm_value);
-    fgetc(file); // consume newline after 255
+    Screenshot screenshot = capture_screen();
 
-    size = (size_t)(screenshot.width * screenshot.height * 3);
-    screenshot.pixels = (uint8_t *)malloc(size);
-    fread(screenshot.pixels, 1, size, file);
-    pclose(file);
-
-    double t_capture_end = now_ms();
-    printf("capture: %.2f ms\n", t_capture_end - t_capture_start);
-
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8;
-    bytes_per_pixel = 3;
-#elif defined(__APPLE__)
-    screenshot = capture_screen();
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    bytes_per_pixel = 4;
-#elif defined(_WIN32)
-    pixel_format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8;
-    bytes_per_pixel = 4;
-    screenshot = capture_screen();
-#else
-#error Unsupported platform
-#endif
-
-    double t_window_start = now_ms();
     Image original_image = {
         .data = screenshot.pixels,
         .width = screenshot.width,
         .height = screenshot.height,
         .mipmaps = 1,
-        .format = pixel_format,
+        .format = PIXELFORMAT_UNCOMPRESSED_R8G8B8A8,
     };
 
     Image image = original_image;
@@ -159,25 +107,16 @@ int main(void) {
     // ============================================================================
     // Open raylib window
     // ============================================================================
-    double t = now_ms();
     int monitor = GetCurrentMonitor();
     int w = GetMonitorWidth(monitor);
     int h = GetMonitorHeight(monitor);
 
     SetConfigFlags(FLAG_WINDOW_HIGHDPI | FLAG_WINDOW_UNDECORATED);
     InitWindow(w, h, "Screenshot");
-    printf("InitWindow: %.2f ms\n", now_ms() - t);
 
-    t = now_ms();
     ToggleBorderlessWindowed();
-    printf("ToggleBorderlessWindowed: %.2f ms\n", now_ms() - t);
-
-    double t_window_end = now_ms();
-    printf("window creation: %.2f ms\n", t_window_end - t_window_start);
 
     Texture2D texture = LoadTextureFromImage(image);
-    printf("screen: %d x %d\n", GetScreenWidth(), GetScreenHeight());
-    printf("render: %d x %d\n", GetRenderWidth(), GetRenderHeight());
 
     Vector2 initial_mouse_position = { 0 };
     Vector2 current_mouse_position = { 0 };
@@ -212,7 +151,6 @@ int main(void) {
             // different way I can do this so its clear
             initial_mouse_position = GetMousePosition();
             current_mouse_position = GetMousePosition();
-            printf("Initial mouse position %f, %f\n", GetMousePosition().x, GetMousePosition().y);
         }
 
         if (mouse_down) {
@@ -268,9 +206,7 @@ int main(void) {
                             pixels[index + 0] = stroke_color.r;
                             pixels[index + 1] = stroke_color.g;
                             pixels[index + 2] = stroke_color.b;
-                            if (bytes_per_pixel == 4) {
-                                pixels[index + 3] = stroke_color.a;
-                            }
+                            pixels[index + 3] = stroke_color.a;
                         }
                     }
                 }

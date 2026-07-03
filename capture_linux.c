@@ -1,4 +1,5 @@
 #import "capture.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,4 +26,10 @@ Screenshot capture_screen() {
     pclose(file);
 
     return screenshot;
+}
+
+void copy_png_to_clipboard(const uint8_t *data, size_t size) {
+    FILE *pipe = popen("wl-copy --type image/png", "w");
+    fwrite(data, 1, size, pipe);
+    pclose(pipe);
 }

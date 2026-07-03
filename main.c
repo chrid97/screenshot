@@ -7,7 +7,7 @@
 //  - esc should cancel capture
 //  - disable hotkeys when drawing
 //  - when you're drawing under the buttons it should disappear or we should reduce the opacity
-//
+//  -undo/redo (maybe just undo)
 // ============================================================================
 // JUICE IDEAS
 // ============================================================================
@@ -162,6 +162,10 @@ int main(void) {
         int initial_x = initial_mouse_position.x * scale_x;
         int initial_y = initial_mouse_position.y * scale_y;
 
+        // ============================================================================
+        // Actions
+        // ============================================================================
+
         if (mouse_down && action == ACTION_FREEHAND) {
             int prev_x = previous_mouse_position.x * scale_x;
             int prev_y = previous_mouse_position.y * scale_y;
@@ -170,9 +174,6 @@ int main(void) {
             UpdateTexture(texture, image.data);
         }
 
-        // ============================================================================
-        // Actions
-        // ============================================================================
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             switch (action) {
             case ACTION_FREEHAND:
@@ -252,17 +253,12 @@ int main(void) {
 
                 // ExportImage(cropped, "image.png");
                 uint8_t *data = ExportImageToMemory(cropped, ".png", &image_size);
-#if defined(__linux__)
-                FILE *pipe = popen("wl-copy --type image/png", "w");
-                fwrite(data, 1, image_size, pipe);
-                pclose(pipe);
-#elif defined(__APPLE__)
-                copy_png_to_clipboard(data, image_size);
-#endif
+                copy_png_to_clipboard(data, (size_t)image_size);
+
                 UnloadFileData(data);
                 free(cropped_image_pixels);
-                // (CG) maybe add a done variable that we set to true here
-                // while (windowlose && !done)
+                // (CG) maybe add a done variable that we set to true here while (windowlose &&
+                // !done)
                 CloseWindow();
                 return 0;
             }

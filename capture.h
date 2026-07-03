@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stddef.h>
+#include <stdint.h>
+
 enum {
     BYTES_PER_PIXEL = 4,
 };
@@ -13,4 +16,6 @@ typedef struct {
 } Screenshot;
 
 Screenshot capture_screen(void);
-void copy_png_to_clipboard(const unsigned char *data, int size);
+
+// (CG) should this return success status?
+void copy_png_to_clipboard(const uint8_t *data, size_t size);

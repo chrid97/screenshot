@@ -1,13 +1,12 @@
 // ============================================================================
 // TODO
 // ============================================================================
-//  - Add hover to ui overlay
 //  - add capture modes to overlay
 //  - use a preview buffer
-//  - make overlay clickable
 //  - make overlay bigger?
 //  - esc should cancel capture
 //  - disable hotkeys when drawing
+//  - when you're drawing under the buttons it should disappear or we should reduce the opacity
 //
 // ============================================================================
 // JUICE IDEAS
@@ -97,7 +96,7 @@ int main(void) {
 
     Image image = original_image;
 
-    size = (size_t)(screenshot.height * screenshot.width * bytes_per_pixel);
+    size = (size_t)(screenshot.height * screenshot.width * BYTES_PER_PIXEL);
     image.data = (uint8_t *)malloc(size);
     memcpy(image.data, original_image.data, size);
 
@@ -202,7 +201,7 @@ int main(void) {
                                                          radius);
 
                         if (outer && !inner) {
-                            int index = (y * image.width + x) * bytes_per_pixel;
+                            int index = (y * image.width + x) * BYTES_PER_PIXEL;
                             pixels[index + 0] = stroke_color.r;
                             pixels[index + 1] = stroke_color.g;
                             pixels[index + 2] = stroke_color.b;
@@ -235,14 +234,14 @@ int main(void) {
 
                 int width = abs(right - left);
                 int height = abs(bottom - top);
-                uint8_t *cropped_image_pixels = (uint8_t *)malloc(width * height * bytes_per_pixel);
+                uint8_t *cropped_image_pixels = (uint8_t *)malloc(width * height * BYTES_PER_PIXEL);
 
                 unsigned char *pixels = image.data;
                 for (int y = top; y < bottom; y++) {
-                    unsigned char *src = pixels + (y * image.width + left) * bytes_per_pixel;
+                    unsigned char *src = pixels + (y * image.width + left) * BYTES_PER_PIXEL;
                     unsigned char *dst =
-                        cropped_image_pixels + ((y - top) * width * bytes_per_pixel);
-                    memcpy(dst, src, width * bytes_per_pixel);
+                        cropped_image_pixels + ((y - top) * width * BYTES_PER_PIXEL);
+                    memcpy(dst, src, width * BYTES_PER_PIXEL);
                 }
 
                 Image cropped = image;

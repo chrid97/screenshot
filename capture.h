@@ -1,5 +1,9 @@
 #pragma once
 
+enum {
+    BYTES_PER_PIXEL = 4,
+};
+
 typedef struct {
     int width;
     int height;
@@ -8,7 +12,5 @@ typedef struct {
     unsigned char *pixels;
 } Screenshot;
 
-const int bytes_per_pixel = 4;
 Screenshot capture_screen(void);
-
 void copy_png_to_clipboard(const unsigned char *data, int size);

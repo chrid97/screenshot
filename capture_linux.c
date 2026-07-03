@@ -16,10 +16,10 @@ Screenshot capture_screen() {
 
     // Convert from RGB to RGBA
     size_t total_pixels = (size_t)(screenshot.width * screenshot.height);
-    screenshot.pixels = (uint8_t *)malloc(total_pixels * bytes_per_pixel);
+    screenshot.pixels = (uint8_t *)malloc(total_pixels * BYTES_PER_PIXEL);
     for (size_t i = 0; i < total_pixels; i++) {
-        fread(&screenshot.pixels[i * bytes_per_pixel], 1, 3, file);
-        screenshot.pixels[i * bytes_per_pixel + 3] = 255;
+        fread(&screenshot.pixels[i * BYTES_PER_PIXEL], 1, 3, file);
+        screenshot.pixels[i * BYTES_PER_PIXEL + 3] = 255;
     }
 
     pclose(file);

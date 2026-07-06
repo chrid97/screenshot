@@ -37,10 +37,10 @@ Screenshot capture_screen(void) {
 
                                        // Scale up for my Retina resoluton
                                        NSScreen *screen = NSScreen.mainScreen;
-                                       result.scale = screen.backingScaleFactor;
+                                       // result.scale = screen.backingScaleFactor;
 
-                                       config.width = display.width * result.scale;
-                                       config.height = display.height * result.scale;
+                                       config.width = display.width * screen.backingScaleFactor;
+                                       config.height = display.height * screen.backingScaleFactor;
                                        config.showsCursor = NO;
 
                                        [SCScreenshotManager
@@ -98,7 +98,7 @@ Screenshot capture_screen(void) {
 
                                                   result.width = (int)width;
                                                   result.height = (int)height;
-                                                  result.stride = (int)bytes_per_row;
+                                                  // result.stride = (int)bytes_per_row;
                                                   result.pixels = pixels;
 
                                                   dispatch_semaphore_signal(sem);
@@ -110,7 +110,7 @@ Screenshot capture_screen(void) {
     return result;
 }
 
-void copy_png_to_clipboard(const unsigned char *data, int size) {
+void copy_png_to_clipboard(const unsigned char *data, size_t size) {
     NSData *png = [NSData dataWithBytes:data length:size];
 
     NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];

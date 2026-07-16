@@ -16,6 +16,7 @@ Linux)
     capture_linux.c \
     "$RAYLIB_DIR/libraylib.a" \
     -I"$RAYLIB_DIR" \
+    -Ithird-party \
     -lGL \
     -lm \
     -lpthread \
@@ -31,6 +32,7 @@ Darwin)
     capture_macos.m \
     "$RAYLIB_DIR/libraylib.a" \
     -I"$RAYLIB_DIR" \
+    -Ithird-party \
     -framework OpenGL \
     -framework Cocoa \
     -framework IOKit \
@@ -49,6 +51,7 @@ MINGW* | MSYS* | CYGWIN*)
     main.c \
     "$RAYLIB_DIR/libraylib.a" \
     -I"$RAYLIB_DIR" \
+    -Ithird-party \
     -lopengl32 \
     -lgdi32 \
     -lwinmm \
@@ -62,3 +65,8 @@ MINGW* | MSYS* | CYGWIN*)
 esac
 
 "$OUT"
+
+# ============================================================================
+#  TODO
+# ============================================================================
+# shared include for third party?

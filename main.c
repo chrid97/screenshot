@@ -11,6 +11,7 @@
 // ============================================================================
 // JUICE IDEAS
 // ============================================================================
+// - Screenshot appears on the bottom right of the screen then fades
 // - optional camera flash sound (maybe)
 // - camera flash on screen?
 // - mini image on the bottom right (configurable?)
@@ -18,6 +19,7 @@
 // ============================================================================
 #include "capture.h"
 #include "raylib.h"
+#include <assert.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -27,6 +29,9 @@
 #include <string.h>
 #include <time.h>
 
+#define STB_IMAGE_WRITE_STATIC
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 // ============================================================================
 // GLOBALS
 // ============================================================================
@@ -40,12 +45,6 @@ Color stroke_color = ACCENT_RED;
 // int stroke_width = 4;
 
 // ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-static inline int min_int(int a, int b) { return a < b ? a : b; }
-static inline int max_int(int a, int b) { return a > b ? a : b; }
-
-// ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 typedef enum { ACTION_RECTANGLE, ACTION_LINE, ACTION_FREEHAND, ACTION_CAPTURE } Draw;
@@ -54,6 +53,24 @@ typedef enum {
     OUTPUT_CLIPBOARD,
     OUTPUT_DISK,
 } OutputDestination;
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+static inline int min_int(int a, int b) { return a < b ? a : b; }
+static inline int max_int(int a, int b) { return a > b ? a : b; }
+
+// ============================================================================
+//  Image
+// ============================================================================
+CG_Rectangle cg_rectangle_from_coords(int x1, int y1, int x2, int y2) {
+    return (CG_Rectangle){
+        .left = min_int(x1, x2),
+        .right = max_int(x1, x2),
+        .top = min_int(y1, y2),
+        .bottom = max_int(y1, y2),
+    };
+}
 
 // ============================================================================
 // CODE
@@ -82,14 +99,20 @@ bool inside_rounded_rect(int x, int y, int top, int left, int right, int bottom,
     return distance_squared <= radius * radius;
 }
 
-void draw_rect_rounded_outline(
-    uint8_t *buffer, int initial_x, int initial_y, int curr_x, int curr_y, int image_width) {
+void draw_rect_rounded_outline(uint8_t *buffer,
+                               CG_Rectangle rect,
+                               // int initial_x,
+                               // int initial_y,
+                               // int curr_x,
+                               // int curr_y,
+                               int image_width,
+                               Color color) {
     int radius = 10;
     int stroke_width = 3;
-    int left = min_int(initial_x, curr_x);
-    int right = max_int(initial_x, curr_x);
-    int top = min_int(initial_y, curr_y);
-    int bottom = max_int(initial_y, curr_y);
+    int left = rect.left;
+    int right = rect.right;
+    int top = rect.top;
+    int bottom = rect.bottom;
     for (int y = top; y <= bottom; y++) {
         for (int x = left; x <= right; x++) {
             bool outer = inside_rounded_rect(x, y, top, left, right, bottom, radius);
@@ -103,10 +126,10 @@ void draw_rect_rounded_outline(
 
             if (outer && !inner) {
                 int index = (y * image_width + x) * BYTES_PER_PIXEL;
-                buffer[index + 0] = stroke_color.r;
-                buffer[index + 1] = stroke_color.g;
-                buffer[index + 2] = stroke_color.b;
-                buffer[index + 3] = stroke_color.a;
+                buffer[index + 0] = color.r;
+                buffer[index + 1] = color.g;
+                buffer[index + 2] = color.b;
+                buffer[index + 3] = color.a;
             }
         }
     }
@@ -190,26 +213,56 @@ int main(void) {
         // Actions
         // ============================================================================
 
-        if (mouse_down && action == ACTION_RECTANGLE) {
-            draw_rect_rounded_outline(
-                preview_buffer, initial_x, initial_y, curr_x, curr_y, image.width);
+        if (mouse_down) {
+            switch (action) {
+            case ACTION_FREEHAND:
+                break;
+            case ACTION_RECTANGLE: {
+                CG_Rectangle rect = cg_rectangle_from_coords(initial_x, initial_y, curr_x, curr_y);
+                draw_rect_rounded_outline(preview_buffer, rect, image.width, stroke_color);
+            } break;
+            case ACTION_LINE: {
+            } break;
+            case ACTION_CAPTURE: {
+                CG_Rectangle rect = cg_rectangle_from_coords(initial_x, initial_y, curr_x, curr_y);
+                draw_rect_rounded_outline(preview_buffer, rect, image.width, WHITE);
+            } break;
+            }
             UpdateTexture(texture, preview_buffer);
         }
 
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             switch (action) {
-            case ACTION_FREEHAND:
-                break;
+            case ACTION_FREEHAND: {
+            } break;
             case ACTION_RECTANGLE: {
-                draw_rect_rounded_outline(
-                    image.pixels, initial_x, initial_y, curr_x, curr_y, image.width);
-                break;
-            }
+                CG_Rectangle rect = cg_rectangle_from_coords(initial_x, initial_y, curr_x, curr_y);
+                draw_rect_rounded_outline(image.pixels, rect, image.width, stroke_color);
+            } break;
             case ACTION_LINE: {
-                break;
-            };
+            } break;
             case ACTION_CAPTURE: {
-            }
+                CG_Rectangle rect = cg_rectangle_from_coords(initial_x, initial_y, curr_x, curr_y);
+                int width = rect.right - rect.left;
+                int height = rect.bottom - rect.top;
+
+                uint8_t *pixels = image.pixels;
+                uint8_t *capture_start =
+                    pixels + (rect.top * image.width + rect.left) * BYTES_PER_PIXEL;
+
+                int png_size = 0;
+                uint8_t *png = stbi_write_png_to_mem(capture_start,
+                                                     image.width * BYTES_PER_PIXEL,
+                                                     width,
+                                                     height,
+                                                     BYTES_PER_PIXEL,
+                                                     &png_size);
+
+                assert(png != NULL);
+                copy_png_to_clipboard(png, (size_t)png_size);
+                free(png);
+                return 0;
+            } break;
             }
         }
 

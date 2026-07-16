@@ -14,6 +14,13 @@ typedef struct {
     uint8_t *pixels;
 } Screenshot;
 
+typedef struct {
+    int left;
+    int right;
+    int top;
+    int bottom;
+} CG_Rectangle;
+
 Screenshot capture_screen(void);
 
 // (CG) should this return success status?

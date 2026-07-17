@@ -1,10 +1,11 @@
 // ============================================================================
 // TODO
 // ============================================================================
+//  - why is stb image slow?
+//  - darken screen on screenshot
+//  - esc should cancel actions
 //  - add capture modes to overlay
-//  - use a preview buffer
 //  - make overlay bigger?
-//  - esc should cancel capture
 //  - disable hotkeys when drawing
 //  - when you're drawing under the buttons it should disappear or we should reduce the opacity
 //  -undo/redo (maybe just undo)
@@ -261,6 +262,7 @@ int main(void) {
                 assert(png != NULL);
                 copy_png_to_clipboard(png, (size_t)png_size);
                 free(png);
+                goto cleanup;
                 return 0;
             } break;
             }
@@ -279,6 +281,7 @@ int main(void) {
         EndDrawing();
     }
 
+cleanup:
     UnloadTexture(texture);
     free(preview_buffer);
     free(image.pixels);

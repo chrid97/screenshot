@@ -5,7 +5,20 @@ mkdir -p build
 
 RAYLIB_DIR="third-party/raylib/src"
 OUT="build/screenshot"
-CFLAGS="-Wall -Wextra -Wshadow -Wconversion -fsanitize=address,undefined"
+
+# ============================================================================
+#  Shared flags
+# ============================================================================
+DEBUG_CFLAGS="-O0 -g3 -Wall -Wextra -Wshadow -Wconversion \
+-fsanitize=address,undefined"
+
+RELEASE_CFLAGS="-O3 -DNDEBUG -march=native \
+-Wall -Wextra -Wshadow -Wconversion"
+
+CFLAGS=$RELEASE_CFLAGS
+# ============================================================================
+# ##############
+# ============================================================================
 
 make -C "$RAYLIB_DIR" PLATFORM=PLATFORM_DESKTOP
 

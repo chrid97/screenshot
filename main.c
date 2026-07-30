@@ -176,7 +176,7 @@ int main(void) {
         // Draw Dimmed Overlay
         uint8_t *pixels = image.pixels;
         size_t byte_count = screenshot_byte_count(&image);
-        int factor = 230;
+        int factor = 215;
 
         for (size_t i = 0; i < byte_count; i += BYTES_PER_PIXEL) {
             preview_buffer[i + 0] = (uint8_t)((int)preview_buffer[i + 0] * factor / 255);

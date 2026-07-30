@@ -1,8 +1,6 @@
 // ============================================================================
 // TODO
 // ============================================================================
-//  - why is stb image slow?
-//  - darken screen on screenshot
 //  - esc should cancel actions
 //  - add capture modes to overlay
 //  - make overlay bigger?
@@ -175,6 +173,17 @@ int main(void) {
     while (!WindowShouldClose()) {
         memcpy(preview_buffer, image.pixels, screenshot_byte_count(&image));
 
+        // Draw Dimmed Overlay
+        uint8_t *pixels = image.pixels;
+        size_t byte_count = screenshot_byte_count(&image);
+        int factor = 230;
+
+        for (size_t i = 0; i < byte_count; i += BYTES_PER_PIXEL) {
+            preview_buffer[i + 0] = (uint8_t)((int)preview_buffer[i + 0] * factor / 255);
+            preview_buffer[i + 1] = (uint8_t)((int)preview_buffer[i + 1] * factor / 255);
+            preview_buffer[i + 2] = (uint8_t)((int)preview_buffer[i + 2] * factor / 255);
+        }
+
         // ============================================================================
         // Input Events
         // ============================================================================
@@ -229,7 +238,6 @@ int main(void) {
                 draw_rect_rounded_outline(preview_buffer, rect, image.width, WHITE);
             } break;
             }
-            UpdateTexture(texture, preview_buffer);
         }
 
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -268,6 +276,7 @@ int main(void) {
             }
         }
 
+        UpdateTexture(texture, preview_buffer);
         // ============================================================================
         //  Drawing
         // ============================================================================
